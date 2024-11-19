@@ -1,0 +1,15 @@
+package com.otsi.tconnect.ms.fup.billing.repository;
+
+import java.util.Optional;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+//import java.util.List;
+
+import com.otsi.tconnect.ms.fup.billing.entity.Coupon;
+
+
+@Repository
+public interface CouponRepository extends JpaRepository<Coupon, Long> {
+		Optional<Coupon> findByCode(String code);
+}
