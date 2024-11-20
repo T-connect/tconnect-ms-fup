@@ -6,7 +6,10 @@ import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Component;
 
+import lombok.extern.slf4j.Slf4j;
+
 @Component
+@Slf4j
 public class EmailUtils {
 
     private static JavaMailSender javaMailSender;
@@ -33,6 +36,12 @@ public class EmailUtils {
         message.setTo(to);
         message.setSubject(subject);
         message.setText(text);
-        javaMailSender.send(message);
+        try {
+        	 javaMailSender.send(message);
+			log.info("Email Successfully Sent");
+		} catch (Exception e) {
+			log.error("Error occured while sending email");
+
+		}
     }
 }

@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User-Specific Notifications</title>
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client/dist/sockjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/stompjs/lib/stomp.min.js"></script>
+</head>
+<body>
+    <h1>User-Specific Notifications</h1>
+    <div id="messages"></div>
+    <input type="text" id="recipient" placeholder="Recipient Username" />
+    <input type="text" id="message" placeholder="Message Content" />
+    <button onclick="sendMessage()">Send Message</button>
+
+    <script>
+        let stompClient = null;
+
+        function connect() {
+            const socket = new SockJS('/notifications');
+            stompClient = Stomp.over(socket);
+            stompClient.connect({}, function (frame) {
+                console.log('Connected: ' + frame);
+                const username = prompt("Enter your username:");
+                stompClient.subscribe('/user/' + username + '/queue/messages', function (message) {
+                    displayMessage(JSON.parse(message.body));
+                });
+            });
+        }
+
+        function sendMessage() {
+            const recipient = document.getElementById('recipient').value;
+            const content = document.getElementById('message').value;
+            const notification = { recipient, content };
+            stompClient.send("/app/sendToUser", {}, JSON.stringify(notification));
+        }
+
+        function displayMessage(message) {
+            const messagesDiv = document.getElementById('messages');
+            const newMessage = document.createElement('div');
+            newMessage.innerText = message.content;
+            messagesDiv.appendChild(newMessage);
+        }
+
+        connect();
+    </script>
+</body>
+</html>

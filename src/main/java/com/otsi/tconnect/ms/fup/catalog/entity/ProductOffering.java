@@ -68,6 +68,12 @@ public class ProductOffering {
 	@ManyToMany
 	@JoinTable(name = "productoffering_product", joinColumns = @JoinColumn(name = "prod_offr_id"), inverseJoinColumns = @JoinColumn(name = "prod_id"))
 	private List<Product> product;
+	
+	
+	
+	@Column(name = "fup_template_id")
+	private Long fupTemplateId;
+
 
 }
 
