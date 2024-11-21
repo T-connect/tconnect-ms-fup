@@ -12,7 +12,6 @@ public class UserHandshakeInterceptor implements HandshakeInterceptor {
     @Override
     public boolean beforeHandshake(ServerHttpRequest request, ServerHttpResponse response,
                                    WebSocketHandler wsHandler, Map<String, Object> attributes) {
-        // Extract userId from query parameters
         String query = request.getURI().getQuery();
         if (query != null && query.contains("userId=")) {
             String userId = query.split("userId=")[1];

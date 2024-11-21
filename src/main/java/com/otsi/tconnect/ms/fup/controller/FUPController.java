@@ -34,8 +34,8 @@ public class FUPController {
 	private NotificationService notificationService;
 
 	@PostMapping("/cdr/upload")
-	public ResponseEntity<String> uploadCdrFile(@RequestParam("file") MultipartFile file,
-			@RequestParam("deleteAll") String flag) {
+	public ResponseEntity<String> uploadCdrFile(@RequestParam("cdrFile") MultipartFile file,
+			@RequestParam("isFullUpload") String flag) {
 		try {
 			long successCount = 0;
 			long failedCount = 0;
