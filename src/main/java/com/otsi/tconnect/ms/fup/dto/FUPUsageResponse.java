@@ -7,5 +7,7 @@ public class FUPUsageResponse {
 
 	private String deviceId;
 	private String currentUsagePct;
+	private double totalUsage;
+	private double currentUsage;
 
 }

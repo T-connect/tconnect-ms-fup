@@ -1,10 +1,12 @@
 package com.otsi.tconnect.ms.fup.service;
 
 import java.text.DecimalFormat;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -17,6 +19,7 @@ import com.otsi.tconnect.ms.fup.catalog.repository.ProductOfferingRepository;
 import com.otsi.tconnect.ms.fup.catalog.repository.SubscriptionAgreementRepository;
 import com.otsi.tconnect.ms.fup.customer.entity.Customer;
 import com.otsi.tconnect.ms.fup.customer.repository.CustomerRepository;
+import com.otsi.tconnect.ms.fup.dto.FUPDetailUsageResponse;
 import com.otsi.tconnect.ms.fup.dto.FUPUsageResponse;
 import com.otsi.tconnect.ms.fup.fup.entity.FUPRecord;
 import com.otsi.tconnect.ms.fup.fup.repository.FUPRecordRepository;
@@ -48,7 +51,7 @@ public class FUPService {
 
 	@Autowired
 	FubTemplateRepository fubTemplateRepository;
-	
+
 	@Autowired
 	private NotificationService notificationService;
 
@@ -86,10 +89,30 @@ public class FUPService {
 	}
 
 	public void calculateFUPUsage() {
-		List<FUPRecord> fupRecordList = fUPRecordRepository.findAll();
-		Map<String, List<FUPRecord>> fupRecordListGrpByDevice = fupRecordList.stream()
-				.collect(Collectors.groupingBy(FUPRecord::getDevice));
-		for (Map.Entry<String, List<FUPRecord>> entry : fupRecordListGrpByDevice.entrySet()) {
+
+		Map<String, List<FUPRecord>> fupRecordListGrpByDeviceMap = new HashMap<>();
+		List<String> deviceList = fUPRecordRepository.getAllDeviceIds();
+		if (null != deviceList && deviceList.size() > 0) {
+			for (String deviceId : deviceList) {
+				long endTimestamp = LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli();
+
+				long startTimestamp = LocalDate.now().minusMonths(1000).atStartOfDay(ZoneId.systemDefault()).toInstant()
+						.toEpochMilli();
+
+				List<FUPRecord> fupRecordList = fUPRecordRepository.findRecordsByDeviceIdAndTimeInRange(deviceId,
+						startTimestamp, endTimestamp);
+				fupRecordListGrpByDeviceMap.put(deviceId, fupRecordList);
+			}
+		}
+
+		/*
+		 * List<FUPRecord> fupRecordList = fUPRecordRepository.findAll();
+		 * 
+		 * 
+		 * Map<String, List<FUPRecord>> fupRecordListGrpByDevice =
+		 * fupRecordList.stream() .collect(Collectors.groupingBy(FUPRecord::getDevice));
+		 */
+		for (Map.Entry<String, List<FUPRecord>> entry : fupRecordListGrpByDeviceMap.entrySet()) {
 			System.out.println("Key: " + entry.getKey() + ", Value: " + entry.getValue());
 			String device = entry.getKey();
 			List<FUPRecord> fupList = entry.getValue();
@@ -132,7 +155,7 @@ public class FUPService {
 									String dataLimit = fubTemplate.getDataLimit();
 									long totalPlanDataInBytes = convertDataGBtoBytes(dataLimit);
 									long totalUsed = calculateUsage(fupList);
-									calculateUsageAndSendEmail(totalPlanDataInBytes, totalUsed, email,custId);
+									calculateUsageAndSendEmail(totalPlanDataInBytes, totalUsed, email, custId);
 								} else {
 									log.error("No FUP template found for" + device);
 								}
@@ -166,16 +189,16 @@ public class FUPService {
 				EmailUtils.sendEmail(email, "Tconnect - USAGE", "Dear User, Your Usage is reached to 1%");
 			}
 		}
-		if(custId != null) {
+		if (custId != null) {
 			if (usedPct > 90.00) {
 				notificationService.notifyUser(custId, "Dear User, Your Usage is reached to 90%");
 			} else if (usedPct > 80.00) {
 				notificationService.notifyUser(custId, "Dear User, Your Usage is reached to 80%");
 			} else if (usedPct > 70.00) {
 				notificationService.notifyUser(custId, "Dear User, Your Usage is reached to 70%");
-			} 
+			}
 		}
-		
+
 	}
 
 	// To-do need to filter the records based on date
@@ -213,7 +236,11 @@ public class FUPService {
 		FUPUsageResponse fUPUsageResponse = new FUPUsageResponse();
 		fUPUsageResponse.setDeviceId(device);
 		double currentUsage = 0.0;
-		List<FUPRecord> fupRecordList = fUPRecordRepository.findByDevice(device);
+		long endTimestamp = LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli();
+		long startTimestamp = LocalDate.now().minusMonths(1000).atStartOfDay(ZoneId.systemDefault()).toInstant()
+				.toEpochMilli();
+		List<FUPRecord> fupRecordList = fUPRecordRepository.findRecordsByDeviceIdAndTimeInRange(device, startTimestamp,
+				endTimestamp);
 
 		try {
 			if (device != null) {
@@ -252,7 +279,9 @@ public class FUPService {
 							if (fubTemplate != null) {
 								String dataLimit = fubTemplate.getDataLimit();
 								long totalPlanDataInBytes = convertDataGBtoBytes(dataLimit);
+								fUPUsageResponse.setTotalUsage(bytesToGigabytes(totalPlanDataInBytes));
 								long totalUsed = calculateUsage(fupRecordList);
+								fUPUsageResponse.setCurrentUsage(bytesToGigabytes(totalUsed));
 								currentUsage = ((double) totalUsed / (double) totalPlanDataInBytes) * 100.00;
 							} else {
 								log.error("No FUP template found for" + device);
@@ -270,11 +299,20 @@ public class FUPService {
 			}
 		} catch (Exception e) {
 			log.error("Exception occured while calulating fup for  " + device + "error " + e.getMessage());
-			fUPUsageResponse.setCurrentUsagePct(df.format(currentUsage)+"%");
+			fUPUsageResponse.setCurrentUsagePct(df.format(currentUsage) + "%");
 			return fUPUsageResponse;
 		}
-		fUPUsageResponse.setCurrentUsagePct(df.format(currentUsage)+"%");
+		fUPUsageResponse.setCurrentUsagePct(df.format(currentUsage) + "%");
 		return fUPUsageResponse;
+	}
+
+	public static double bytesToGigabytes(long bytes) {
+		final long BYTES_IN_ONE_GB = 1024L * 1024L * 1024L;
+		return (double) bytes / BYTES_IN_ONE_GB;
+	}
+
+	public FUPDetailUsageResponse getDetailsCurrentUsage(String deviceId) {
+		return null;
 	}
 
 }

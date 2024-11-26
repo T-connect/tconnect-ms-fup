@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.otsi.tconnect.ms.fup.dto.FUPDetailUsageResponse;
 import com.otsi.tconnect.ms.fup.dto.FUPUsageResponse;
 import com.otsi.tconnect.ms.fup.service.FUPService;
 import com.otsi.tconnect.ms.fup.service.NotificationService;
@@ -69,6 +70,12 @@ public class FUPController {
 	@GetMapping("/usage/{deviceId}")
 	public ResponseEntity<FUPUsageResponse> getCurrentUsage(@PathVariable String deviceId){
 		return new ResponseEntity<FUPUsageResponse>(fUPService.getCurrentUsage(deviceId), HttpStatus.OK);
+	}
+	
+	
+	@GetMapping("/details/usage/{deviceId}")
+	public ResponseEntity<FUPDetailUsageResponse> getDetailsCurrentUsage(@PathVariable String deviceId){
+		return new ResponseEntity<FUPDetailUsageResponse>(fUPService.getDetailsCurrentUsage(deviceId), HttpStatus.OK);
 	}
 	
 	
