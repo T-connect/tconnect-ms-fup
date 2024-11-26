@@ -72,11 +72,20 @@ public class FUPController {
 	public ResponseEntity<FUPUsageResponse> getCurrentUsage(@PathVariable String deviceId) {
 		return new ResponseEntity<FUPUsageResponse>(fUPService.getCurrentUsage(deviceId), HttpStatus.OK);
 	}
+	
+	
 
 	@GetMapping("/details/usage/{deviceId}")
 	public ResponseEntity<FUPDetailUsageResponse> getDetailsCurrentUsage(@PathVariable String deviceId) {
 		return new ResponseEntity<FUPDetailUsageResponse>(fUPService.getDetailsCurrentUsage(deviceId), HttpStatus.OK);
 	}
 	
+	
+	@GetMapping("/run/batch")
+	public ResponseEntity<String> runBatch() {
+		fUPService.calculateFUPUsage();
+		return ResponseEntity.status(HttpStatus.OK)
+				.body("Successfully Completed Batch ");
+	}
 	
 }

@@ -22,6 +22,7 @@ public class FUPScheduledTask {
 	public void fUPScheduledTask() {
 		log.info("FUPScheduledTask::Running task started at: " + LocalDateTime.now().format(formatter));
 		fUPService.calculateFUPUsage();
+		log.info("FUPScheduledTask::Running task ended at: " + LocalDateTime.now().format(formatter));
 	}
 
 }
