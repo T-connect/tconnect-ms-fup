@@ -3,6 +3,7 @@ package com.otsi.tconnect.ms.fup.service;
 import java.text.DecimalFormat;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -21,6 +22,7 @@ import com.otsi.tconnect.ms.fup.customer.entity.Customer;
 import com.otsi.tconnect.ms.fup.customer.repository.CustomerRepository;
 import com.otsi.tconnect.ms.fup.dto.FUPDetailUsageResponse;
 import com.otsi.tconnect.ms.fup.dto.FUPUsageResponse;
+import com.otsi.tconnect.ms.fup.dto.Usage;
 import com.otsi.tconnect.ms.fup.fup.entity.FUPRecord;
 import com.otsi.tconnect.ms.fup.fup.repository.FUPRecordRepository;
 import com.otsi.tconnect.ms.fup.util.EmailUtils;
@@ -312,7 +314,21 @@ public class FUPService {
 	}
 
 	public FUPDetailUsageResponse getDetailsCurrentUsage(String deviceId) {
-		return null;
+		FUPDetailUsageResponse fUPDetailUsageResponse = new FUPDetailUsageResponse();
+		List<Usage> usageList = new ArrayList<Usage>();
+		LocalDate end = LocalDate.now();
+		LocalDate startDate = LocalDate.now().minusDays(30);
+		while (end.isBefore(startDate)) {
+			Usage usage = new Usage();
+			long endTimestamp = end.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli();
+			long startTimestamp = startDate.minusMonths(1000).atStartOfDay(ZoneId.systemDefault()).toInstant()
+					.toEpochMilli();
+			List<FUPRecord> fupRecordList = fUPRecordRepository.findRecordsByDeviceIdAndTimeInRange(deviceId,
+					startTimestamp, endTimestamp);
+			usageList.add(usage);
+		}
+		fUPDetailUsageResponse.setUsageList(usageList);
+		return fUPDetailUsageResponse;
 	}
 
 }
