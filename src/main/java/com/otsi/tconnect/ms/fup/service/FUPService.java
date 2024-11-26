@@ -2,7 +2,8 @@ package com.otsi.tconnect.ms.fup.service;
 
 import java.text.DecimalFormat;
 import java.time.LocalDate;
-import java.time.ZoneId;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -58,7 +59,7 @@ public class FUPService {
 	private NotificationService notificationService;
 
 	@Transactional
-	public void saveCdrRecord(String line) {
+	public FUPRecord saveCdrRecord(String line) {
 		String[] parts = line.split(";");
 		FUPRecord cdrRecord = new FUPRecord();
 		if (parts.length >= 16) {
@@ -82,7 +83,7 @@ public class FUPService {
 		if (parts.length >= 17) {
 			cdrRecord.setAcctTerminateCause(parts[16]);
 		}
-		fUPRecordRepository.save(cdrRecord);
+		return cdrRecord;
 	}
 
 	@Transactional
@@ -96,24 +97,16 @@ public class FUPService {
 		List<String> deviceList = fUPRecordRepository.getAllDeviceIds();
 		if (null != deviceList && deviceList.size() > 0) {
 			for (String deviceId : deviceList) {
-				long endTimestamp = LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli();
-
-				long startTimestamp = LocalDate.now().minusMonths(1000).atStartOfDay(ZoneId.systemDefault()).toInstant()
-						.toEpochMilli();
-
+				LocalDate now = LocalDate.now();
+				long endTimestamp = LocalDateTime.now().toInstant(ZoneOffset.UTC).toEpochMilli();
+				LocalDateTime firstDayStart = LocalDateTime.of(now.getYear(), now.getMonth(), 1, 0, 0, 0, 0);
+				long startTimestamp = firstDayStart.toInstant(ZoneOffset.UTC).toEpochMilli();
 				List<FUPRecord> fupRecordList = fUPRecordRepository.findRecordsByDeviceIdAndTimeInRange(deviceId,
 						startTimestamp, endTimestamp);
 				fupRecordListGrpByDeviceMap.put(deviceId, fupRecordList);
 			}
 		}
 
-		/*
-		 * List<FUPRecord> fupRecordList = fUPRecordRepository.findAll();
-		 * 
-		 * 
-		 * Map<String, List<FUPRecord>> fupRecordListGrpByDevice =
-		 * fupRecordList.stream() .collect(Collectors.groupingBy(FUPRecord::getDevice));
-		 */
 		for (Map.Entry<String, List<FUPRecord>> entry : fupRecordListGrpByDeviceMap.entrySet()) {
 			System.out.println("Key: " + entry.getKey() + ", Value: " + entry.getValue());
 			String device = entry.getKey();
@@ -237,9 +230,10 @@ public class FUPService {
 		FUPUsageResponse fUPUsageResponse = new FUPUsageResponse();
 		fUPUsageResponse.setDeviceId(device);
 		double currentUsage = 0.0;
-		long endTimestamp = LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli();
-		long startTimestamp = LocalDate.now().minusMonths(1000).atStartOfDay(ZoneId.systemDefault()).toInstant()
-				.toEpochMilli();
+		LocalDate now = LocalDate.now();
+		long endTimestamp = LocalDateTime.now().toInstant(ZoneOffset.UTC).toEpochMilli();
+		LocalDateTime firstDayStart = LocalDateTime.of(now.getYear(), now.getMonth(), 1, 0, 0, 0, 0);
+		long startTimestamp = firstDayStart.toInstant(ZoneOffset.UTC).toEpochMilli();
 		List<FUPRecord> fupRecordList = fUPRecordRepository.findRecordsByDeviceIdAndTimeInRange(device, startTimestamp,
 				endTimestamp);
 
@@ -315,19 +309,48 @@ public class FUPService {
 	public FUPDetailUsageResponse getDetailsCurrentUsage(String deviceId) {
 		FUPDetailUsageResponse fUPDetailUsageResponse = new FUPDetailUsageResponse();
 		List<Usage> usageList = new ArrayList<Usage>();
-		LocalDate end = LocalDate.now();
-		LocalDate startDate = LocalDate.now().minusDays(30);
-		while (end.isBefore(startDate)) {
-			Usage usage = new Usage();
-			long endTimestamp = end.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli();
-			long startTimestamp = startDate.minusMonths(1000).atStartOfDay(ZoneId.systemDefault()).toInstant()
-					.toEpochMilli();
+		LocalDateTime now = LocalDateTime.now();
+		LocalDateTime startOfMonth = now.withDayOfMonth(1);
+		LocalDateTime endOfMonth = now.withDayOfMonth(now.getDayOfMonth());
+		LocalDateTime currentDay = startOfMonth;
+		while (!currentDay.isAfter(endOfMonth)) {
+			LocalDateTime startTime = LocalDateTime.of(currentDay.getYear(), currentDay.getMonth(),
+					currentDay.getDayOfMonth(), 0, 0, 0, 0);
+			LocalDateTime endTime = LocalDateTime.of(currentDay.getYear(), currentDay.getMonth(),
+					currentDay.getDayOfMonth(), 23, 59, 59, 999);
+			long endTimestamp = endTime.toInstant(ZoneOffset.UTC).toEpochMilli();
+			long startTimestamp = startTime.toInstant(ZoneOffset.UTC).toEpochMilli();
 			List<FUPRecord> fupRecordList = fUPRecordRepository.findRecordsByDeviceIdAndTimeInRange(deviceId,
 					startTimestamp, endTimestamp);
-			usageList.add(usage);
+			Usage usage = new Usage();
+			usage.setDate(startTime.toLocalDate());
+			calculateUploadAndDownload(fupRecordList, usage,usageList);
+			currentDay = currentDay.plusDays(1);
 		}
 		fUPDetailUsageResponse.setUsageList(usageList);
 		return fUPDetailUsageResponse;
+	}
+
+	private void calculateUploadAndDownload(List<FUPRecord> fupRecordList, Usage usage, List<Usage> usageList) {
+		long uploadUsage = 0;
+		long downloadUsage = 0;
+		if (fupRecordList != null && fupRecordList.size() > 0) {
+			for (FUPRecord fUPRecord : fupRecordList) {
+				uploadUsage += ((1L << 32) * fUPRecord.getAcctInputGigawords()) + fUPRecord.getAcctInputOctets();
+				downloadUsage += ((1L << 32) * fUPRecord.getAcctOutputGigawords()) + fUPRecord.getAcctOutputOctets();
+			}
+		}
+		usage.setUploadUsage(bytesToMB(uploadUsage));
+		usage.setDownLoadUsage(bytesToMB(downloadUsage));
+		usageList.add(usage);
+	}
+
+	public static double bytesToMB(long bytes) {
+		return bytes / (1024.0 * 1024.0);
+	}
+
+	public void saveAll(List<FUPRecord> crdRecordList) {
+		fUPRecordRepository.saveAllAndFlush(crdRecordList);
 	}
 
 }

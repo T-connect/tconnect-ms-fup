@@ -32,5 +32,11 @@ public class FubTemplate {
     @Column(name = "IS_DEFAULT")  
     private Boolean isDefault;
 
+    @Column(name = "First_Threshold")
+	private Integer firstThreshold;
+	@Column(name = "Second_Threshold")
+	private Integer secondThreshold;
+	@Column(name = "Third_Threshold")
+	private Integer thirdThreshold;
    
 }
