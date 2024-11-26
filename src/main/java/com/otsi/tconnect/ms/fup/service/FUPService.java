@@ -203,7 +203,6 @@ public class FUPService {
 
 	}
 
-	// To-do need to filter the records based on date
 	private long calculateUsage(List<FUPRecord> fupList) {
 		long totalUsed = 0;
 		if (fupList != null && fupList.size() > 0) {
