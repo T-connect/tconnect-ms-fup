@@ -20,3 +20,15 @@ CREATE TABLE fup_record (
     acct_delay_time INT,
     acct_terminate_cause VARCHAR(255)
 );
+
+
+CREATE TABLE fup_usage_notification (
+    device_id VARCHAR(255) NOT NULL,
+    month INT NOT NULL,
+    year INT NOT NULL,
+    threshold INT NOT NULL,
+    status VARCHAR(255),
+    PRIMARY KEY (device_id, month, year, threshold)
+);
+
+
