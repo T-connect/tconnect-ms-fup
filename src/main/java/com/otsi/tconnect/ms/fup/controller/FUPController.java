@@ -88,4 +88,12 @@ public class FUPController {
 				.body("Successfully Completed Batch ");
 	}
 	
+	
+	@GetMapping("/test/websocket/{custId}")
+	public ResponseEntity<String> testWebSocket(@PathVariable String custId) {
+		fUPService.testWebSocket(custId);
+		return ResponseEntity.status(HttpStatus.OK)
+				.body("Successfully Completed Batch ");
+	}
+	
 }

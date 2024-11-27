@@ -13,6 +13,7 @@ import java.util.Optional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.google.gson.Gson;
 import com.otsi.tconnect.ms.fup.catalog.entity.FubTemplate;
 import com.otsi.tconnect.ms.fup.catalog.entity.ProductOffering;
 import com.otsi.tconnect.ms.fup.catalog.entity.SubscriptionAgreement;
@@ -24,6 +25,7 @@ import com.otsi.tconnect.ms.fup.customer.repository.CustomerRepository;
 import com.otsi.tconnect.ms.fup.dto.FUPDetailUsageResponse;
 import com.otsi.tconnect.ms.fup.dto.FUPUsageResponse;
 import com.otsi.tconnect.ms.fup.dto.Usage;
+import com.otsi.tconnect.ms.fup.dto.WebSocketResponse;
 import com.otsi.tconnect.ms.fup.fup.entity.FUPRecord;
 import com.otsi.tconnect.ms.fup.fup.repository.FUPRecordRepository;
 import com.otsi.tconnect.ms.fup.util.EmailUtils;
@@ -150,7 +152,8 @@ public class FUPService {
 									String dataLimit = fubTemplate.getDataLimit();
 									long totalPlanDataInBytes = convertDataGBtoBytes(dataLimit);
 									long totalUsed = calculateUsage(fupList);
-									calculateUsageAndSendEmail(totalPlanDataInBytes, totalUsed, email, custId);
+									calculateUsageAndSendEmail(totalPlanDataInBytes, totalUsed, email, custId,
+											fubTemplate);
 								} else {
 									log.error("No FUP template found for" + device);
 								}
@@ -171,29 +174,41 @@ public class FUPService {
 		}
 	}
 
-	private void calculateUsageAndSendEmail(long totalPlanDataInBytes, long totalUsed, String email, String custId) {
+	private void calculateUsageAndSendEmail(long totalPlanDataInBytes, long totalUsed, String email, String custId,
+			FubTemplate fubTemplate) {
 		double usedPct = ((double) totalUsed / (double) totalPlanDataInBytes) * 100.00;
+		Gson gson = new Gson();
 		if (email != null) {
-			if (usedPct > 90.00) {
-				EmailUtils.sendEmail(email, "Tconnect - USAGE", "Dear User, Your Usage is reached to 90%");
-			} else if (usedPct > 80.00) {
-				EmailUtils.sendEmail(email, "Tconnect - USAGE", "Dear User, Your Usage is reached to 80%");
-			} else if (usedPct > 70.00) {
-				EmailUtils.sendEmail(email, "Tconnect - USAGE", "Dear User, Your Usage is reached to 70%");
-			} else if (usedPct > 1.00) {
-				EmailUtils.sendEmail(email, "Tconnect - USAGE", "Dear User, Your Usage is reached to 1%");
-			}
-		}
-		if (custId != null) {
-			if (usedPct > 90.00) {
-				notificationService.notifyUser(custId, "Dear User, Your Usage is reached to 90%");
-			} else if (usedPct > 80.00) {
-				notificationService.notifyUser(custId, "Dear User, Your Usage is reached to 80%");
-			} else if (usedPct > 70.00) {
-				notificationService.notifyUser(custId, "Dear User, Your Usage is reached to 70%");
-			}
-		}
+			if (usedPct > (double) fubTemplate.getThirdThreshold()) {
+				EmailUtils.sendEmail(email, "Tconnect - USAGE",
+						"Dear User, Your Usage is reached to " + fubTemplate.getThirdThreshold() + "%");
+				if (custId != null) {
+					WebSocketResponse webSocketResponse = new WebSocketResponse(custId,
+							"Dear User, Your Usage is reached to " + fubTemplate.getThirdThreshold() + "%");
+					String jsonStr = gson.toJson(webSocketResponse);
+					notificationService.notifyUser(custId, jsonStr);
+				}
 
+			} else if (usedPct > (double) fubTemplate.getSecondThreshold()) {
+				EmailUtils.sendEmail(email, "Tconnect - USAGE",
+						"Dear User, Your Usage is reached to " + fubTemplate.getSecondThreshold() + "%");
+				if (custId != null) {
+					WebSocketResponse webSocketResponse = new WebSocketResponse(custId,
+							"Dear User, Your Usage is reached to " + fubTemplate.getSecondThreshold() + "%");
+					String jsonStr = gson.toJson(webSocketResponse);
+					notificationService.notifyUser(custId, jsonStr);
+				}
+			} else if (usedPct > (double) fubTemplate.getFirstThreshold()) {
+				EmailUtils.sendEmail(email, "Tconnect - USAGE",
+						"Dear User, Your Usage is reached to " + fubTemplate.getFirstThreshold() + "%");
+				if (custId != null) {
+					WebSocketResponse webSocketResponse = new WebSocketResponse(custId,
+							"Dear User, Your Usage is reached to " + fubTemplate.getFirstThreshold() + "%");
+					String jsonStr = gson.toJson(webSocketResponse);
+					notificationService.notifyUser(custId, jsonStr);
+				}
+			}
+		}
 	}
 
 	private long calculateUsage(List<FUPRecord> fupList) {
@@ -324,7 +339,7 @@ public class FUPService {
 					startTimestamp, endTimestamp);
 			Usage usage = new Usage();
 			usage.setDate(startTime.toLocalDate());
-			calculateUploadAndDownload(fupRecordList, usage,usageList);
+			calculateUploadAndDownload(fupRecordList, usage, usageList);
 			currentDay = currentDay.plusDays(1);
 		}
 		fUPDetailUsageResponse.setUsageList(usageList);
@@ -351,6 +366,13 @@ public class FUPService {
 
 	public void saveAll(List<FUPRecord> crdRecordList) {
 		fUPRecordRepository.saveAllAndFlush(crdRecordList);
+	}
+
+	public void testWebSocket(String custId) {
+		WebSocketResponse webSocketResponse = new WebSocketResponse(custId, "Dear User, Your Usage is reached to 90%");
+		Gson gson = new Gson();
+		String jsonStr = gson.toJson(webSocketResponse);
+		notificationService.notifyUser(custId, jsonStr);
 	}
 
 }
