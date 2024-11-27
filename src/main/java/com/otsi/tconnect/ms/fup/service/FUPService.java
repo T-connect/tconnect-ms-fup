@@ -34,7 +34,10 @@ import com.otsi.tconnect.ms.fup.dto.FUPUsageResponse;
 import com.otsi.tconnect.ms.fup.dto.Usage;
 import com.otsi.tconnect.ms.fup.dto.WebSocketResponse;
 import com.otsi.tconnect.ms.fup.fup.entity.FUPRecord;
+import com.otsi.tconnect.ms.fup.fup.entity.FUPUsageNotification;
+import com.otsi.tconnect.ms.fup.fup.entity.FUPUsageNotificationID;
 import com.otsi.tconnect.ms.fup.fup.repository.FUPRecordRepository;
+import com.otsi.tconnect.ms.fup.fup.repository.FUPUsageNotificationRepository;
 import com.otsi.tconnect.ms.fup.util.EmailUtils;
 
 import jakarta.persistence.EntityManager;
@@ -63,6 +66,9 @@ public class FUPService {
 
 	@Autowired
 	FubTemplateRepository fubTemplateRepository;
+
+	@Autowired
+	FUPUsageNotificationRepository fUPUsageNotificationRepository;
 
 	@Autowired
 	private NotificationService notificationService;
@@ -167,8 +173,8 @@ public class FUPService {
 									String dataLimit = fubTemplate.getDataLimit();
 									long totalPlanDataInBytes = convertDataGBtoBytes(dataLimit);
 									long totalUsed = calculateUsage(fupList);
-									calculateUsageAndSendEmail(totalPlanDataInBytes, totalUsed, email, custId,
-											fubTemplate);
+									calculateUsageAndSendEmail(device, totalPlanDataInBytes, totalUsed, email, custId,
+											fubTemplate, LocalDate.now().getMonthValue(), LocalDate.now().getYear());
 								} else {
 									log.error("No FUP template found for" + device);
 								}
@@ -245,41 +251,68 @@ public class FUPService {
 		}
 	}
 
-	private void calculateUsageAndSendEmail(long totalPlanDataInBytes, long totalUsed, String email, String custId,
-			FubTemplate fubTemplate) {
+	private void calculateUsageAndSendEmail(String deviceId, long totalPlanDataInBytes, long totalUsed, String email,
+			String custId, FubTemplate fubTemplate, Integer month, Integer year) {
 		double usedPct = ((double) totalUsed / (double) totalPlanDataInBytes) * 100.00;
 		Gson gson = new Gson();
 		if (email != null || custId != null) {
 			if (usedPct > (double) fubTemplate.getThirdThreshold()) {
-				if (email != null) {
-					EmailUtils.sendEmail(email, SUBJECT, MSG + fubTemplate.getThirdThreshold() + "%");
+				FUPUsageNotification fUPUsageNotification = new FUPUsageNotification();
+				FUPUsageNotificationID fUPUsageNotificationID = new FUPUsageNotificationID(deviceId, month, year,
+						fubTemplate.getThirdThreshold());
+				fUPUsageNotification.setStatus("Success");
+				fUPUsageNotification.setId(fUPUsageNotificationID);
+				Optional<FUPUsageNotification> fupNotification = fUPUsageNotificationRepository
+						.findById(fUPUsageNotificationID);
+				if (!fupNotification.isPresent()) {
+					if (email != null) {
+						EmailUtils.sendEmail(email, SUBJECT, MSG + fubTemplate.getThirdThreshold() + "%");
+						fUPUsageNotificationRepository.save(fUPUsageNotification);
+					}
+					if (custId != null) {
+						WebSocketResponse webSocketResponse = new WebSocketResponse(custId,
+								MSG + fubTemplate.getThirdThreshold() + "%");
+						String jsonStr = gson.toJson(webSocketResponse);
+						notificationService.notifyUser(custId, jsonStr);
+					}
 				}
-				if (custId != null) {
-					WebSocketResponse webSocketResponse = new WebSocketResponse(custId,
-							MSG + fubTemplate.getThirdThreshold() + "%");
-					String jsonStr = gson.toJson(webSocketResponse);
-					notificationService.notifyUser(custId, jsonStr);
-				}
-
 			} else if (usedPct > (double) fubTemplate.getSecondThreshold()) {
-				if (email != null) {
-					EmailUtils.sendEmail(email, SUBJECT, MSG + fubTemplate.getSecondThreshold() + "%");
-				}
-				if (custId != null) {
-					WebSocketResponse webSocketResponse = new WebSocketResponse(custId,
-							MSG + fubTemplate.getSecondThreshold() + "%");
-					String jsonStr = gson.toJson(webSocketResponse);
-					notificationService.notifyUser(custId, jsonStr);
+				FUPUsageNotification fUPUsageNotification = new FUPUsageNotification();
+				FUPUsageNotificationID fUPUsageNotificationID = new FUPUsageNotificationID(deviceId, month, year,
+						fubTemplate.getSecondThreshold());
+				fUPUsageNotification.setStatus("Success");
+				fUPUsageNotification.setId(fUPUsageNotificationID);
+				Optional<FUPUsageNotification> fupNotification = fUPUsageNotificationRepository
+						.findById(fUPUsageNotificationID);
+				if (!fupNotification.isPresent()) {
+					if (email != null) {
+						EmailUtils.sendEmail(email, SUBJECT, MSG + fubTemplate.getSecondThreshold() + "%");
+					}
+					if (custId != null) {
+						WebSocketResponse webSocketResponse = new WebSocketResponse(custId,
+								MSG + fubTemplate.getSecondThreshold() + "%");
+						String jsonStr = gson.toJson(webSocketResponse);
+						notificationService.notifyUser(custId, jsonStr);
+					}
 				}
 			} else if (usedPct > (double) fubTemplate.getFirstThreshold()) {
-				if (email != null) {
-					EmailUtils.sendEmail(email, SUBJECT, MSG + fubTemplate.getFirstThreshold() + "%");
-				}
-				if (custId != null) {
-					WebSocketResponse webSocketResponse = new WebSocketResponse(custId,
-							MSG + fubTemplate.getFirstThreshold() + "%");
-					String jsonStr = gson.toJson(webSocketResponse);
-					notificationService.notifyUser(custId, jsonStr);
+				FUPUsageNotification fUPUsageNotification = new FUPUsageNotification();
+				FUPUsageNotificationID fUPUsageNotificationID = new FUPUsageNotificationID(deviceId, month, year,
+						fubTemplate.getFirstThreshold());
+				fUPUsageNotification.setStatus("Success");
+				fUPUsageNotification.setId(fUPUsageNotificationID);
+				Optional<FUPUsageNotification> fupNotification = fUPUsageNotificationRepository
+						.findById(fUPUsageNotificationID);
+				if (!fupNotification.isPresent()) {
+					if (email != null) {
+						EmailUtils.sendEmail(email, SUBJECT, MSG + fubTemplate.getFirstThreshold() + "%");
+					}
+					if (custId != null) {
+						WebSocketResponse webSocketResponse = new WebSocketResponse(custId,
+								MSG + fubTemplate.getFirstThreshold() + "%");
+						String jsonStr = gson.toJson(webSocketResponse);
+						notificationService.notifyUser(custId, jsonStr);
+					}
 				}
 			}
 		}
@@ -425,8 +458,8 @@ public class FUPService {
 		long downloadUsage = 0;
 		if (fupRecordList != null && fupRecordList.size() > 0) {
 			for (FUPRecord fUPRecord : fupRecordList) {
-				uploadUsage += ((1L << 32) * fUPRecord.getAcctInputGigawords()) + fUPRecord.getAcctInputOctets();
-				downloadUsage += ((1L << 32) * fUPRecord.getAcctOutputGigawords()) + fUPRecord.getAcctOutputOctets();
+				downloadUsage += ((1L << 32) * fUPRecord.getAcctInputGigawords()) + fUPRecord.getAcctInputOctets();
+				uploadUsage += ((1L << 32) * fUPRecord.getAcctOutputGigawords()) + fUPRecord.getAcctOutputOctets();
 			}
 		}
 		usage.setUploadUsage(bytesToMB(uploadUsage));

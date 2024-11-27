@@ -93,7 +93,7 @@ public class FUPController {
 	public ResponseEntity<String> testWebSocket(@PathVariable String custId) {
 		fUPService.testWebSocket(custId);
 		return ResponseEntity.status(HttpStatus.OK)
-				.body("Successfully Completed Batch ");
+				.body("Successfully pushed to notification");
 	}
 	
 }
