@@ -51,7 +51,7 @@ public class FUPController {
 				String line;
 				while ((line = reader.readLine()) != null) {
 					try {
-						crdRecordList.add(fUPService.saveCdrRecord(line));
+						crdRecordList.add(fUPService.getCdrRecord(line));
 						successCount++;
 					} catch (Exception e) {
 						failedCount++;

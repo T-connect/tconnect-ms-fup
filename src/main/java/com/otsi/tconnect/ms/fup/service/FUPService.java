@@ -1,16 +1,23 @@
 package com.otsi.tconnect.ms.fup.service;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
 import java.text.DecimalFormat;
+import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import com.google.gson.Gson;
@@ -60,8 +67,14 @@ public class FUPService {
 	@Autowired
 	private NotificationService notificationService;
 
+	@Value("${file.crd.directory.path}")
+	private String directoryPath;
+
+	public static final String MSG = "Dear User, Your Usage is reached to ";
+	public static final String SUBJECT = "Tconnect - USAGE";
+
 	@Transactional
-	public FUPRecord saveCdrRecord(String line) {
+	public FUPRecord getCdrRecord(String line) {
 		String[] parts = line.split(";");
 		FUPRecord cdrRecord = new FUPRecord();
 		if (parts.length >= 16) {
@@ -94,6 +107,8 @@ public class FUPService {
 	}
 
 	public void calculateFUPUsage() {
+
+		readAllCRDFilesAndStoreToDB();
 
 		Map<String, List<FUPRecord>> fupRecordListGrpByDeviceMap = new HashMap<>();
 		List<String> deviceList = fUPRecordRepository.getAllDeviceIds();
@@ -174,36 +189,95 @@ public class FUPService {
 		}
 	}
 
+	private void readAllCRDFilesAndStoreToDB() {
+
+		try {
+			File directory = new File(directoryPath);
+			File[] files = directory.listFiles((dir, name) -> name.endsWith(".cdr"));
+			if (files != null) {
+				for (File file : files) {
+					try {
+						if (file.getName().startsWith("Processed_"))
+							continue;
+						processFile(file);
+						renameFileWithTimestamp(file);
+					} catch (Exception e) {
+						System.err.println("Error processing file " + file.getName() + ": " + e.getMessage());
+					}
+				}
+			} else {
+				log.info("No CDR files found in the directory.");
+			}
+
+		} catch (Exception e) {
+			log.info("Exception occured while reading CDR");
+		}
+
+	}
+
+	private void renameFileWithTimestamp(File file) {
+		String timestamp = new SimpleDateFormat("yyyyMMddHHmmss").format(new Date());
+		String newFileName = "Processed_" + file.getName().replace(".cdr", "_" + timestamp + ".cdr");
+		File renamedFile = new File(file.getParent(), newFileName);
+		if (file.renameTo(renamedFile)) {
+			log.info("File renamed to: " + renamedFile.getName());
+		} else {
+			log.error("Failed to rename file: " + file.getName());
+		}
+
+	}
+
+	private void processFile(File file) {
+		List<FUPRecord> fupRecordList = new ArrayList<FUPRecord>();
+		try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+			String line;
+			while ((line = reader.readLine()) != null) {
+				FUPRecord fUPRecord = getCdrRecord(line);
+				fupRecordList.add(fUPRecord);
+			}
+		} catch (IOException e) {
+			log.error("error while processing file" + file.getName());
+			e.printStackTrace();
+		}
+
+		if (fupRecordList.size() > 0) {
+			fUPRecordRepository.saveAllAndFlush(fupRecordList);
+		}
+	}
+
 	private void calculateUsageAndSendEmail(long totalPlanDataInBytes, long totalUsed, String email, String custId,
 			FubTemplate fubTemplate) {
 		double usedPct = ((double) totalUsed / (double) totalPlanDataInBytes) * 100.00;
 		Gson gson = new Gson();
-		if (email != null) {
+		if (email != null || custId != null) {
 			if (usedPct > (double) fubTemplate.getThirdThreshold()) {
-				EmailUtils.sendEmail(email, "Tconnect - USAGE",
-						"Dear User, Your Usage is reached to " + fubTemplate.getThirdThreshold() + "%");
+				if (email != null) {
+					EmailUtils.sendEmail(email, SUBJECT, MSG + fubTemplate.getThirdThreshold() + "%");
+				}
 				if (custId != null) {
 					WebSocketResponse webSocketResponse = new WebSocketResponse(custId,
-							"Dear User, Your Usage is reached to " + fubTemplate.getThirdThreshold() + "%");
+							MSG + fubTemplate.getThirdThreshold() + "%");
 					String jsonStr = gson.toJson(webSocketResponse);
 					notificationService.notifyUser(custId, jsonStr);
 				}
 
 			} else if (usedPct > (double) fubTemplate.getSecondThreshold()) {
-				EmailUtils.sendEmail(email, "Tconnect - USAGE",
-						"Dear User, Your Usage is reached to " + fubTemplate.getSecondThreshold() + "%");
+				if (email != null) {
+					EmailUtils.sendEmail(email, SUBJECT, MSG + fubTemplate.getSecondThreshold() + "%");
+				}
 				if (custId != null) {
 					WebSocketResponse webSocketResponse = new WebSocketResponse(custId,
-							"Dear User, Your Usage is reached to " + fubTemplate.getSecondThreshold() + "%");
+							MSG + fubTemplate.getSecondThreshold() + "%");
 					String jsonStr = gson.toJson(webSocketResponse);
 					notificationService.notifyUser(custId, jsonStr);
 				}
 			} else if (usedPct > (double) fubTemplate.getFirstThreshold()) {
-				EmailUtils.sendEmail(email, "Tconnect - USAGE",
-						"Dear User, Your Usage is reached to " + fubTemplate.getFirstThreshold() + "%");
+				if (email != null) {
+					EmailUtils.sendEmail(email, SUBJECT, MSG + fubTemplate.getFirstThreshold() + "%");
+				}
 				if (custId != null) {
 					WebSocketResponse webSocketResponse = new WebSocketResponse(custId,
-							"Dear User, Your Usage is reached to " + fubTemplate.getFirstThreshold() + "%");
+							MSG + fubTemplate.getFirstThreshold() + "%");
 					String jsonStr = gson.toJson(webSocketResponse);
 					notificationService.notifyUser(custId, jsonStr);
 				}
@@ -301,7 +375,7 @@ public class FUPService {
 						}
 					} else {
 						log.error("Calulation  stoped for the MAC address :  " + device
-								+ "because of custId or email not found or product offering id is missed ");
+								+ " because of custId or email not found or product offering id is missed ");
 					}
 				} else {
 					log.error("No data found for the MAC address" + device);
@@ -369,7 +443,7 @@ public class FUPService {
 	}
 
 	public void testWebSocket(String custId) {
-		WebSocketResponse webSocketResponse = new WebSocketResponse(custId, "Dear User, Your Usage is reached to 90%");
+		WebSocketResponse webSocketResponse = new WebSocketResponse(custId, MSG + " 90%");
 		Gson gson = new Gson();
 		String jsonStr = gson.toJson(webSocketResponse);
 		notificationService.notifyUser(custId, jsonStr);
