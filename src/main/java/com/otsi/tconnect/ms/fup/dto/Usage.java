@@ -10,5 +10,7 @@ public class Usage {
 	private LocalDate date;
 	private double uploadUsage;
 	private double downLoadUsage;
+	private String uploadUsageStr;
+	private String downLoadUsageStr;
 
 }

@@ -18,7 +18,7 @@ public class FUPScheduledTask {
 
 	private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
-	@Scheduled(cron = "0 */5 * * * *")
+	//@Scheduled(cron = "0 */5 * * * *")
 	public void fUPScheduledTask() {
 		log.info("FUPScheduledTask::Running task started at: " + LocalDateTime.now().format(formatter));
 		fUPService.calculateFUPUsage();

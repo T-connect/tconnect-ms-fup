@@ -78,10 +78,11 @@ public class FUPService {
 
 	public static final String MSG = "Dear User, Your Usage is reached to ";
 	public static final String SUBJECT = "Tconnect - USAGE";
+	DecimalFormat df = new DecimalFormat("0.0");
 
 	@Transactional
 	public FUPRecord getCdrRecord(String line) {
-		String[] parts = line.split(";");
+		String[] parts = line.split(",");
 		FUPRecord cdrRecord = new FUPRecord();
 		if (parts.length >= 16) {
 			cdrRecord.setClient(parts[0]);
@@ -121,7 +122,7 @@ public class FUPService {
 		if (null != deviceList && deviceList.size() > 0) {
 			for (String deviceId : deviceList) {
 				LocalDate now = LocalDate.now();
-				long endTimestamp = LocalDateTime.now().toInstant(ZoneOffset.UTC).toEpochMilli();
+				long endTimestamp = LocalDateTime.now().toInstant(ZoneOffset.UTC).toEpochMilli()/1000;
 				LocalDateTime firstDayStart = LocalDateTime.of(now.getYear(), now.getMonth(), 1, 0, 0, 0, 0);
 				long startTimestamp = firstDayStart.toInstant(ZoneOffset.UTC).toEpochMilli();
 				List<FUPRecord> fupRecordList = fUPRecordRepository.findRecordsByDeviceIdAndTimeInRange(deviceId,
@@ -348,14 +349,14 @@ public class FUPService {
 	}
 
 	public FUPUsageResponse getCurrentUsage(String device) {
-		DecimalFormat df = new DecimalFormat("#.##");
+		
 		FUPUsageResponse fUPUsageResponse = new FUPUsageResponse();
 		fUPUsageResponse.setDeviceId(device);
 		double currentUsage = 0.0;
 		LocalDate now = LocalDate.now();
-		long endTimestamp = LocalDateTime.now().toInstant(ZoneOffset.UTC).toEpochMilli();
+		long endTimestamp = LocalDateTime.now().toInstant(ZoneOffset.UTC).toEpochMilli()/1000;
 		LocalDateTime firstDayStart = LocalDateTime.of(now.getYear(), now.getMonth(), 1, 0, 0, 0, 0);
-		long startTimestamp = firstDayStart.toInstant(ZoneOffset.UTC).toEpochMilli();
+		long startTimestamp = firstDayStart.toInstant(ZoneOffset.UTC).toEpochMilli()/1000;
 		List<FUPRecord> fupRecordList = fUPRecordRepository.findRecordsByDeviceIdAndTimeInRange(device, startTimestamp,
 				endTimestamp);
 
@@ -431,6 +432,7 @@ public class FUPService {
 	public FUPDetailUsageResponse getDetailsCurrentUsage(String deviceId) {
 		FUPDetailUsageResponse fUPDetailUsageResponse = new FUPDetailUsageResponse();
 		List<Usage> usageList = new ArrayList<Usage>();
+		double totalUsage = 0.00;
 		LocalDateTime now = LocalDateTime.now();
 		LocalDateTime startOfMonth = now.withDayOfMonth(1);
 		LocalDateTime endOfMonth = now.withDayOfMonth(now.getDayOfMonth());
@@ -439,21 +441,25 @@ public class FUPService {
 			LocalDateTime startTime = LocalDateTime.of(currentDay.getYear(), currentDay.getMonth(),
 					currentDay.getDayOfMonth(), 0, 0, 0, 0);
 			LocalDateTime endTime = LocalDateTime.of(currentDay.getYear(), currentDay.getMonth(),
-					currentDay.getDayOfMonth(), 23, 59, 59, 999);
-			long endTimestamp = endTime.toInstant(ZoneOffset.UTC).toEpochMilli();
-			long startTimestamp = startTime.toInstant(ZoneOffset.UTC).toEpochMilli();
+					currentDay.getDayOfMonth(), 23, 59, 59, 999999999);
+			long endTimestamp = endTime.toInstant(ZoneOffset.UTC).toEpochMilli()/1000;
+			long startTimestamp = startTime.toInstant(ZoneOffset.UTC).toEpochMilli()/1000;
 			List<FUPRecord> fupRecordList = fUPRecordRepository.findRecordsByDeviceIdAndTimeInRange(deviceId,
 					startTimestamp, endTimestamp);
 			Usage usage = new Usage();
 			usage.setDate(startTime.toLocalDate());
 			calculateUploadAndDownload(fupRecordList, usage, usageList);
+			totalUsage+=(usage.getDownLoadUsage()+usage.getUploadUsage());
 			currentDay = currentDay.plusDays(1);
 		}
 		fUPDetailUsageResponse.setUsageList(usageList);
+		fUPDetailUsageResponse.setTotalUsage(totalUsage);
+		fUPDetailUsageResponse.setTotalUsageStr(df.format(totalUsage));
 		return fUPDetailUsageResponse;
 	}
 
 	private void calculateUploadAndDownload(List<FUPRecord> fupRecordList, Usage usage, List<Usage> usageList) {
+		DecimalFormat df = new DecimalFormat("0.0");
 		long uploadUsage = 0;
 		long downloadUsage = 0;
 		if (fupRecordList != null && fupRecordList.size() > 0) {
@@ -464,6 +470,8 @@ public class FUPService {
 		}
 		usage.setUploadUsage(bytesToMB(uploadUsage));
 		usage.setDownLoadUsage(bytesToMB(downloadUsage));
+		usage.setUploadUsageStr(df.format(bytesToMB(uploadUsage)));
+		usage.setDownLoadUsageStr(df.format(bytesToMB(downloadUsage)));
 		usageList.add(usage);
 	}
 

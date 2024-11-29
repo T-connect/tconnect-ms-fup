@@ -8,5 +8,8 @@ import lombok.Data;
 public class FUPDetailUsageResponse {
 
 	private List<Usage> usageList;
+	private double totalUsage;
+	private String totalUsageStr;
+	
 
 }
