@@ -453,8 +453,6 @@ public class FUPService {
 			currentDay = currentDay.plusDays(1);
 		}
 		fUPDetailUsageResponse.setUsageList(usageList);
-		fUPDetailUsageResponse.setTotalUsage(totalUsage);
-		fUPDetailUsageResponse.setTotalUsageStr(df.format(totalUsage));
 		return fUPDetailUsageResponse;
 	}
 
@@ -472,6 +470,8 @@ public class FUPService {
 		usage.setDownLoadUsage(bytesToMB(downloadUsage));
 		usage.setUploadUsageStr(df.format(bytesToMB(uploadUsage)));
 		usage.setDownLoadUsageStr(df.format(bytesToMB(downloadUsage)));
+		usage.setTotalUsage(usage.getUploadUsage()+usage.getDownLoadUsage());
+		usage.setTotalUsageStr(df.format(usage.getUploadUsage()+usage.getDownLoadUsage()));
 		usageList.add(usage);
 	}
 

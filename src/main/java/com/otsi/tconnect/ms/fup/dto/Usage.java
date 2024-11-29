@@ -12,5 +12,7 @@ public class Usage {
 	private double downLoadUsage;
 	private String uploadUsageStr;
 	private String downLoadUsageStr;
+	private double totalUsage;
+	private String totalUsageStr;
 
 }
