@@ -60,6 +60,8 @@ public interface DeviceRepository extends JpaRepository<Device, String> {
 
 	List<Device> findByCustomerNumber(String customerNumber);
 
+	Optional<Device> findByMacAddress(String device);
+
 	//Device findByDeviceId(Device device);
 
 	

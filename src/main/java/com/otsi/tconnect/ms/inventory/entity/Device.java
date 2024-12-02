@@ -44,8 +44,9 @@ public class Device {
 	@Column(name = "status")
 	private String status;
 
-	@Column(name = "actIon")
-	private String action;
+	/*
+	 * @Column(name = "action") private String action;
+	 */
 
 	@ManyToOne
 	@JoinColumn(name = "device_type_id")

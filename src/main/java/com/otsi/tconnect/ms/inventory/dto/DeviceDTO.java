@@ -17,7 +17,7 @@ public class DeviceDTO {
 	private LocalDate modifiedDate;
 	private String modifiedBy;
 	private String status;
-	private String action;
+	//private String action;
 	private DeviceTypeDTO deviceType;
 	private String lcoId;
 	private String msoId;

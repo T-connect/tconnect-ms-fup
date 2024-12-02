@@ -441,7 +441,7 @@ public class FUPService {
 	}
 
 	private String getCusomerIdBasedOnDevice(String device) {
-		Optional<Device> deviceCustomer = deviceRepository.findByDeviceId(device);
+		Optional<Device> deviceCustomer = deviceRepository.findByMacAddress(device);
 		return deviceCustomer.get().getCustomerNumber();
 	}
 
