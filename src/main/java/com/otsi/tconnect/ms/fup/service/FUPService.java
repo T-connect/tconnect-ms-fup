@@ -39,6 +39,8 @@ import com.otsi.tconnect.ms.fup.fup.entity.FUPUsageNotificationID;
 import com.otsi.tconnect.ms.fup.fup.repository.FUPRecordRepository;
 import com.otsi.tconnect.ms.fup.fup.repository.FUPUsageNotificationRepository;
 import com.otsi.tconnect.ms.fup.util.EmailUtils;
+import com.otsi.tconnect.ms.inventory.entity.Device;
+import com.otsi.tconnect.ms.inventory.repository.DeviceRepository;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -72,6 +74,9 @@ public class FUPService {
 
 	@Autowired
 	private NotificationService notificationService;
+	
+	@Autowired
+	private DeviceRepository deviceRepository;
 
 	@Value("${file.crd.directory.path}")
 	private String directoryPath;
@@ -137,11 +142,16 @@ public class FUPService {
 			List<FUPRecord> fupList = entry.getValue();
 			try {
 				if (device != null) {
-					SubscriptionAgreement subscriptionAgreement = subscriptionAgreementRepository
-							.findByMacAddress(device);
+					//SubscriptionAgreement subscriptionAgreement = subscriptionAgreementRepository
+							//.findByMacAddress(device);
+					
+					String custId = getCusomerIdBasedOnDevice(device);
+					
+					SubscriptionAgreement subscriptionAgreement = subscriptionAgreementRepository.findByCustId(custId);
+					
 					if (null != subscriptionAgreement) {
 						String email = null;
-						String custId = subscriptionAgreement.getCustId();
+						//String custId = subscriptionAgreement.getCustId();
 						Long productOfferingId = subscriptionAgreement.getProductOfferingId();
 
 						Optional<Customer> optionalCustomer = customerRepository.findByCustNo(custId);
@@ -362,10 +372,16 @@ public class FUPService {
 
 		try {
 			if (device != null) {
-				SubscriptionAgreement subscriptionAgreement = subscriptionAgreementRepository.findByMacAddress(device);
+				
+				//SubscriptionAgreement subscriptionAgreement = subscriptionAgreementRepository.findByMacAddress(device);
+				
+				String custId = getCusomerIdBasedOnDevice(device);
+				
+				SubscriptionAgreement subscriptionAgreement = subscriptionAgreementRepository.findByCustId(custId);
+				
 				if (null != subscriptionAgreement) {
 					String email = null;
-					String custId = subscriptionAgreement.getCustId();
+					//String custId = subscriptionAgreement.getCustId();
 					Long productOfferingId = subscriptionAgreement.getProductOfferingId();
 
 					Optional<Customer> optionalCustomer = customerRepository.findByCustNo(custId);
@@ -422,6 +438,11 @@ public class FUPService {
 		}
 		fUPUsageResponse.setCurrentUsagePct(df.format(currentUsage) + "%");
 		return fUPUsageResponse;
+	}
+
+	private String getCusomerIdBasedOnDevice(String device) {
+		Optional<Device> deviceCustomer = deviceRepository.findByDeviceId(device);
+		return deviceCustomer.get().getCustomerNumber();
 	}
 
 	public static double bytesToGigabytes(long bytes) {

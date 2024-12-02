@@ -8,6 +8,8 @@ public interface SubscriptionAgreementRepository extends JpaRepository<Subscript
 
 	SubscriptionAgreement findByActtlId(Long accountNumber);
 	
-	SubscriptionAgreement findByMacAddress(String custId);
+	//SubscriptionAgreement findByMacAddress(String custId);
+
+	SubscriptionAgreement findByCustId(String custId);
 
 }
